@@ -7,6 +7,10 @@
     - secrets.yml
   tasks:
 
+    - name: Vytvoření source složky
+      file:
+        path: ../source
+        state: directory
 
     - name: Stažení WSO2 ZIP
       get_url:
