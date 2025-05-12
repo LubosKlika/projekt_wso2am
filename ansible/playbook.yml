@@ -1,0 +1,70 @@
+---
+- name: Build WSO2AM
+  hosts: localhost
+  connection: local
+  vars_files:
+    - vars.yml
+    - secrets.yml
+  tasks:
+
+
+    - name: Stažení WSO2 ZIP
+      get_url:
+        url: "{{ zip_url }}/v{{ image_tag }}/{{ image }}-{{ image_tag }}.zip"
+        dest: ../source/{{ image }}-{{ image_tag }}.zip
+        mode: '0644'
+
+    - name: Unzip WSO2 
+      unarchive:
+        src: ../source/{{ image }}-{{ image_tag }}.zip
+        dest: ../source/
+        remote_src: no
+
+
+    - name: Import p12 certu
+      copy:
+        src: "{{ pkcs12_path }}"
+        dest: ../source/{{ image }}-{{ image_tag }}/repository/resources/security/{{ pkcs12_file }}
+        mode: '0600'
+
+    - name: Import certu do truststore
+      command: >
+        keytool -importcert
+        -alias "{{ pkcs12_alias }}"
+        -file {{ cert_file }}
+        -keystore ../source/{{ image }}-{{ image_tag }}/repository/resources/security/{{ truststore_file }}
+        -storepass ""
+        -noprompt
+
+
+    - name: Odstránění default [keystore.tls]
+      replace:
+        path: ../source/{{ image }}-{{ image_tag }}/repository/conf/deployment.toml
+        regexp: '^\[keystore\.tls\][^\[]*'
+        replace: ''
+
+    - name: Update deployment.toml
+      blockinfile:
+        path: ../source/{{ image }}-{{ image_tag }}/repository/conf/deployment.toml
+        block: |
+          [keystore.tls]
+          file_name =  "{{ pkcs12_file }}"
+          type =  "PKCS12"
+          password =  "{{ pkcs12_password }}"
+          alias =  "{{ pkcs12_alias }}"
+          key_password =  "{{ pkcs12_password }}"
+        marker: "# {mark} ANSIBLE TLS BLOCK"
+    
+    - name: Build aplikace
+      shell: |
+        cd ..
+        docker build --build-arg IMAGE={{ image }} --build-arg IMAGE_TAG={{ image_tag }} -t {{ image }}:{{ image_tag }} -f docker/Dockerfile .
+
+    - name: Spuštění aplikace
+      docker_container:
+        name: "{{ image }}"
+        image: "{{ image }}:{{ image_tag }}"
+        ports:
+          - "9443:9443"
+          - "8243:8243"
+        state: started

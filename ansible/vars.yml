@@ -1,0 +1,8 @@
+image: wso2am
+image_tag: "4.5.0"
+zip_url: "https://github.com/wso2/product-apim/releases/download"
+cert_file: "certs/cert.pem"
+key_file: "certs/private-key.key"
+pkcs12_path: "certs/certificate.p12"
+pkcs12_file: "certificate.p12"
+truststore_file: "client-truststore.jks"
